@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Login</title>
+
+<style>
+body {
+    margin: 0;
+    font-family: Arial;
+    background: linear-gradient(to right, #0b1f3a, #1c3d6e);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+.card {
+    background: white;
+    padding: 40px;
+    border-radius: 12px;
+    width: 320px;
+    text-align: center;
+    animation: fadeIn 1s ease;
+}
+
+@keyframes fadeIn {
+    from {opacity:0; transform: translateY(20px);}
+    to {opacity:1; transform: translateY(0);}
+}
+
+input {
+    width: 85%;
+    padding: 10px;
+    margin: 10px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+}
+
+.password-box {
+    position: relative;
+}
+
+.eye {
+    position: absolute;
+    right: 20px;
+    top: 18px;
+    cursor: pointer;
+}
+
+button {
+    width: 100%;
+    padding: 10px;
+    background: #001f54;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #003d99;
+}
+</style>
+</head>
+
+<body>
+
+<div class="card">
+    <h2>🔐 Login</h2>
+
+    <input id="user" placeholder="👤 Username">
+
+    <div class="password-box">
+        <input id="pass" type="password" placeholder="🔒 Password">
+        <span class="eye" onclick="toggle()">👁️</span>
+    </div>
+
+    <button onclick="login()">Login</button>
+
+    <p><a href="register.html">Create Account</a></p>
+</div>
+
+<script>
+let show = false;
+
+function toggle() {
+    let pass = document.getElementById("pass");
+    pass.type = show ? "password" : "text";
+    show = !show;
+}
+
+function login() {
+    fetch("http://127.0.0.1:5000/login", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            username: document.getElementById("user").value,
+            password: document.getElementById("pass").value
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if(data.token){
+            localStorage.setItem("token", data.token);
+            window.location.href = "index.html";
+        } else {
+            alert("Login failed");
+        }
+    });
+}
+</script>
+
+</body>
+</html>

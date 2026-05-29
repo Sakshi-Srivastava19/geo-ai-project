@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Admin Dashboard</title>
+<style>
+body {
+    margin: 0;
+    font-family: Arial;
+    background: linear-gradient(to right, #0b1f3a, #1c3d6e);
+   
+    
+    
+}
+
+.card {
+    background: white;
+    padding: 40px;
+    border-radius: 12px;
+    width: 320px;
+    text-align: center;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+}
+
+h2 {
+    margin-bottom: 20px;
+    color: #5baadf;
+}
+
+input {
+    width: 90%;
+    padding: 10px;
+    margin: 10px 0;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+}
+
+button {
+    width: 100%;
+    padding: 10px;
+    background: #19db63;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-top: 10px;
+}
+
+button:hover {
+    background: #030303;
+}
+
+a {
+    display: block;
+    margin-top: 15px;
+    color: #001f54;
+    text-decoration: none;
+    font-size: 14px;
+}
+
+</style>
+</head>
+
+<body style="text-align:center; margin-top:50px;" >
+
+<h2>Admin Dashboard</h2>
+
+<button onclick="loadAdmin()">Load Data</button>
+
+<div id="adminData"></div>
+
+<script>
+function loadAdmin() {
+    fetch("http://127.0.0.1:5000/admin", {
+        headers: {
+            "Authorization": "Bearer " + localStorage.getItem("token")
+        }
+    })
+    .then(res => res.json())
+    .then(data => {
+        if(data.msg){
+            alert(data.msg);
+            return;
+        }
+
+        document.getElementById("adminData").innerHTML =
+            "Total Users: " + data.total_users +
+            "<br>Total Predictions: " + data.total_predictions +
+            "<br>Users: " + data.users;
+    });
+}
+</script>
+
+</body>
+</html>

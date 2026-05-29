@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>GeoAI Dashboard</title>
+
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600&display=swap" rel="stylesheet">
+
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+
+<style>
+
+body {
+    margin: 0;
+    font-family: 'Orbitron', sans-serif;
+    background: #020c1b;
+    color: #e6f1ff;
+}
+
+/* HEADER */
+.header {
+    background: linear-gradient(90deg, #001f54, #003d99);
+    padding: 15px;
+    text-align: center;
+    font-size: 22px;
+    letter-spacing: 1px;
+    box-shadow: 0 0 10px #00aaff;
+}
+
+/* GRID */
+.dashboard {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-gap: 20px;
+    padding: 20px;
+}
+
+/* CARD */
+.card {
+    background: #0b1f3a;
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 0 12px rgba(0,170,255,0.4);
+}
+
+.full {
+    grid-column: span 2;
+}
+
+/* BUTTON */
+button {
+    background: #00aaff;
+    border: none;
+    padding: 10px 15px;
+    color: black;
+    font-weight: bold;
+    border-radius: 6px;
+    cursor: pointer;
+    margin: 5px;
+}
+
+button:hover {
+    background: #33ccff;
+}
+
+/* INPUT */
+input {
+    padding: 8px;
+    border-radius: 5px;
+    border: none;
+}
+
+/* OUTPUT */
+#output {
+    margin-top: 10px;
+    background: #021024;
+    padding: 10px;
+    border-radius: 6px;
+    min-height: 60px;   /* 🔥 prevents collapsing */
+}
+
+.prediction-summary {
+    display: flex;
+    justify-content: space-between;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    margin-bottom: 10px;
+    font-size: 14px;
+}
+
+.prediction-table-wrapper {
+    overflow-x: auto;
+}
+
+.prediction-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.prediction-table th,
+.prediction-table td {
+    border: 1px solid rgba(255,255,255,0.1);
+    padding: 8px 10px;
+    text-align: left;
+}
+
+.prediction-table th {
+    background: rgba(255,255,255,0.05);
+}
+
+.status {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.status.ok {
+    background: rgba(34, 197, 94, 0.15);
+    color: #9ee7a6;
+}
+
+.status.alert {
+    background: rgba(255, 99, 132, 0.15);
+    color: #ff9aa2;
+}
+
+/* HISTORY */
+.history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.history-item {
+    background: rgba(255,255,255,0.05);
+    padding: 10px;
+    border-radius: 6px;
+    border-left: 3px solid #00aaff;
+    font-size: 13px;
+}
+
+.history-item strong {
+    color: #00aaff;
+}
+
+.history-item p {
+    margin: 5px 0 0 0;
+    color: #99ccff;
+}
+
+.history-summary {
+    margin-bottom: 10px;
+    font-size: 14px;
+    color: #cbd5e1;
+}
+
+.history-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+    font-size: 13px;
+    color: #dbeafe;
+}
+
+.history-note {
+    margin-bottom: 10px;
+    font-size: 13px;
+    color: #a5f3fc;
+}
+
+.history-item ul {
+    margin: 8px 0 0 16px;
+    padding: 0;
+    color: #cbd5e1;
+}
+
+.history-item ul li {
+    margin-bottom: 3px;
+}
+
+/* LOADER */
+#loader {
+    display: none;
+    color: #00aaff;
+}
+
+/* MAP */
+#map {
+    height: 350px;
+    border-radius: 10px;
+    overflow-anchor: none;
+}
+
+.chart-wrapper {
+    position: relative;
+    width: 100%;
+    height: 300px;
+    background: #021024;
+    border-radius: 10px;
+    padding: 10px;
+}
+
+canvas {
+    width: 100% !important;
+    height: 100% !important;
+    display: block;
+    padding: 0;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="header">
+🚀 GEO-AI ANALYTICS DASHBOARD | INSPIRED BY SPACE SYSTEMS
+</div>
+
+<div class="dashboard">
+
+    <!-- INPUT -->
+    <div class="card">
+        <h3>📂 Data Upload</h3>
+
+        <input type="file" id="file"><br><br>
+
+        <!-- 🔥 FIX: prevent form reload -->
+        <button type="button" onclick="sendData(event)">Predict</button>
+        <button type="button" onclick="loadHistory()">History</button>
+        <button type="button" onclick="goAdmin()">Admin</button>
+        <button type="button" onclick="logout()">Logout</button>
+
+        <div id="loader">⏳ Processing Data...</div>
+    </div>
+
+    <!-- OUTPUT -->
+    <div class="card">
+        <h3>📊 Prediction Output</h3>
+        <div id="output">No results yet...</div>
+    </div>
+
+    <!-- CHART -->
+    <div class="card">
+        <h3>📈 Data Visualization</h3>
+        <div class="chart-wrapper">
+            <canvas id="chart"></canvas>
+        </div>
+    </div>
+
+    <!-- HISTORY -->
+    <div class="card">
+        <h3>📜 History</h3>
+        <button type="button" onclick="loadHistory()">View Full History</button>
+        <div id="history">No history yet...</div>
+    </div>
+
+    <!-- MAP -->
+    <div class="card full">
+        <h3>🛰️ Geospatial Map View</h3>
+        <div id="map"></div>
+    </div>
+
+</div>
+
+<!-- LIBRARIES (ORDER MATTERS) -->
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- YOUR JS -->
+<script src="script.js"></script>
+
+</body>
+</html>

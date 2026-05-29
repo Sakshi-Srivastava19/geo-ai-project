@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Register</title>
+
+<style>
+body {
+    margin: 0;
+    font-family: Arial;
+    background: linear-gradient(to right, #0b1f3a, #1c3d6e);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+.card {
+    background: white;
+    padding: 40px;
+    border-radius: 12px;
+    width: 320px;
+    text-align: center;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+}
+
+h2 {
+    margin-bottom: 20px;
+    color: #001f54;
+}
+
+input {
+    width: 90%;
+    padding: 10px;
+    margin: 10px 0;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+}
+
+button {
+    width: 100%;
+    padding: 10px;
+    background: #001f54;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-top: 10px;
+}
+
+button:hover {
+    background: #003d99;
+}
+
+a {
+    display: block;
+    margin-top: 15px;
+    color: #001f54;
+    text-decoration: none;
+    font-size: 14px;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="card">
+    <h2>📝 Register</h2>
+
+    <input id="user" placeholder="Username">
+    <input id="pass" type="password" placeholder="Password">
+
+    <button onclick="register()">Register</button>
+
+    <a href="login.html">Back to Login</a>
+</div>
+
+<script>
+function register() {
+    fetch("http://127.0.0.1:5000/register", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            username: document.getElementById("user").value,
+            password: document.getElementById("pass").value
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        alert(data.msg);
+        window.location.href = "login.html";
+    });
+}
+</script>
+
+</body>
+</html>
