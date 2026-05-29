@@ -3,3 +3,5 @@ newenv/
 __pycache__/
 *.pyc
 .env
+history.json
+users.json
