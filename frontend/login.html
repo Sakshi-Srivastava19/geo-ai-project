@@ -81,6 +81,8 @@ button:hover {
 </div>
 
 <script>
+const API_URL = "https://geo-ai-project-backend1.onrender.com";
+
 let show = false;
 
 function toggle() {
@@ -90,7 +92,7 @@ function toggle() {
 }
 
 function login() {
-    fetch("http://127.0.0.1:5000/login", {
+    fetch(`${API_URL}/login`, {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({
@@ -104,7 +106,7 @@ function login() {
             localStorage.setItem("token", data.token);
             window.location.href = "index.html";
         } else {
-            alert("Login failed");
+            alert(data.msg || "Login failed");
         }
     });
 }

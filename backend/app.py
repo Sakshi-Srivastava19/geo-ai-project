@@ -17,7 +17,7 @@ from preprocess import preprocess
 # ================= APP =================
 app = Flask(__name__)
 
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 app.config["JWT_SECRET_KEY"] = "geo_ai_dashboard_super_secure_secret_key_for_project_2026"
 

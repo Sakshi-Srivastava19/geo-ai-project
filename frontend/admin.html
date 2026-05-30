@@ -69,8 +69,10 @@ a {
 <div id="adminData"></div>
 
 <script>
+const API_URL = "https://geo-ai-project-backend1.onrender.com";
+
 function loadAdmin() {
-    fetch("http://127.0.0.1:5000/admin", {
+    fetch(`${API_URL}/admin`, {
         headers: {
             "Authorization": "Bearer " + localStorage.getItem("token")
         }

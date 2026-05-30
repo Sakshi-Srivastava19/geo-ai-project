@@ -1,501 +1,192 @@
-// ================= LOGIN =================
+// ===== DEBUG =====
+console.log("JS Loaded");
+const API_URL = "https://geo-ai-project-backend1.onrender.com";
+// ===== SEND DATA =====
+function sendData(event) {
+    if (event) event.preventDefault(); // 🔥 prevent refresh
 
-async function login() {
-
-    const username = document.getElementById("username").value;
-    const password = document.getElementById("password").value;
-
-    const response = await fetch("http://127.0.0.1:5000/login", {
-
-        method: "POST",
-
-        headers: {
-            "Content-Type": "application/json"
-        },
-
-        body: JSON.stringify({
-            username,
-            password
-        })
-
-    });
-
-    const data = await response.json();
-
-    if (data.token) {
-
-        localStorage.setItem("token", data.token);
-
-        window.location.href = "index.html";
-
-    } else {
-
-        alert(data.msg || "Login Failed");
-    }
-}
-
-
-document.addEventListener("DOMContentLoaded", function() {
-    const path = window.location.pathname;
-    if (path.endsWith("index.html") || path.endsWith("/") || path.endsWith("dashboard.html")) {
-        if (!localStorage.getItem("token")) {
-            window.location.href = "login.html";
-            return;
-        }
-
-        loadSavedPrediction();
-        loadRecentHistory();
-    }
-});
-
-async function loadRecentHistory() {
-    const token = localStorage.getItem("token");
-
-    const response = await fetch("http://127.0.0.1:5000/history", {
-        method: "GET",
-        headers: {
-            Authorization: `Bearer ${token}`
-        }
-    });
-
-    if (!response.ok) {
-        const error = await response.json();
-        document.getElementById("history").innerHTML = `<p style='color:#ff9aa2;'>${error.msg || error.error || 'Unable to load history.'}</p>`;
-        return;
-    }
-
-    const data = await response.json();
-    document.getElementById("history").innerHTML = renderHistoryOutput(data, 10);
-}
-
-function savePredictionState(data) {
-    try {
-        localStorage.setItem("lastPrediction", JSON.stringify(data));
-    } catch (error) {
-        console.warn("Could not save prediction state", error);
-    }
-}
-
-function clearPredictionView() {
-    const output = document.getElementById("output");
-    output.innerHTML = "<p>Uploading file and running prediction... Please wait.</p>";
-
-    if (chartInstance) {
-        chartInstance.destroy();
-        chartInstance = null;
-    }
-
-    const mapContainer = document.getElementById("map");
-    if (mapContainer) {
-        mapContainer.innerHTML = "";
-    }
-}
-
-function loadSavedPrediction() {
-    const saved = localStorage.getItem("lastPrediction");
-    if (!saved) {
-        return;
-    }
-
-    try {
-        const data = JSON.parse(saved);
-        if (!data || !data.prediction) {
-            return;
-        }
-
-        document.getElementById("output").innerHTML = renderPredictionOutput(data.prediction, data.accuracy);
-
-        drawChart(data.prediction);
-        loadMap(data.prediction);
-    } catch (error) {
-        console.warn("Could not restore prediction state", error);
-    }
-}
-
-
-// ================= REGISTER =================
-
-async function register() {
-
-    const username = document.getElementById("username").value;
-    const password = document.getElementById("password").value;
-
-    const response = await fetch("http://127.0.0.1:5000/register", {
-
-        method: "POST",
-
-        headers: {
-            "Content-Type": "application/json"
-        },
-
-        body: JSON.stringify({
-            username,
-            password
-        })
-
-    });
-
-    const data = await response.json();
-
-    alert(data.msg);
-}
-
-
-// ================= PREDICTION =================
-
-async function sendData(event) {
-
-    if (event && event.preventDefault) {
-        event.preventDefault();
-    }
-
-    const fileInput = document.getElementById("file");
+    let fileInput = document.getElementById("file");
 
     if (fileInput.files.length === 0) {
-
-        alert("Please upload CSV file");
+        alert("Upload CSV first!");
         return;
     }
 
-    const file = fileInput.files[0];
-
-    const formData = new FormData();
-    formData.append("file", file);
-
-    const token = localStorage.getItem("token");
-
+    let token = localStorage.getItem("token");
     if (!token) {
-
-        alert("Session expired. Login again.");
+        alert("Please login first!");
         window.location.href = "login.html";
         return;
     }
 
-    clearPredictionView();
     document.getElementById("loader").style.display = "block";
 
-    try {
+    let formData = new FormData();
+    formData.append("file", fileInput.files[0]);
 
-        const response = await fetch("http://127.0.0.1:5000/predict", {
-
-            method: "POST",
-
-            headers: {
-                Authorization: `Bearer ${token}`
-            },
-
-            body: formData
-        });
-
-        const data = response.ok ? await response.json() : await response.json();
-
+    fetch(`${API_URL}/predict`, {
+        method: "POST",
+        headers: {
+            "Authorization": "Bearer " + token
+        },
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
         document.getElementById("loader").style.display = "none";
 
-        console.log(data);
-
-        if (!response.ok) {
-            alert(data.error || data.msg || "Prediction Failed");
+        if (data.error || data.msg) {
+            document.getElementById("output").innerText =
+                data.error || data.msg;
             return;
         }
 
-        // ================= OUTPUT =================
+        let prediction = data.prediction || [];
+        let accuracy = data.accuracy || "N/A";
+        let dataRows = data.data || [];
 
-        document.getElementById("output").innerHTML = renderPredictionOutput(data.prediction, data.accuracy);
+        let outputText =
+            "Prediction: " + JSON.stringify(prediction) +
+            "\nAccuracy: " + accuracy;
 
-        savePredictionState(data);
+        // ✅ Persist output
+        localStorage.setItem("lastOutput", outputText);
+        localStorage.setItem("lastPredictions", JSON.stringify(prediction));
+        localStorage.setItem("lastData", JSON.stringify(dataRows));
+        localStorage.setItem("lastAccuracy", accuracy);
+        window.lastOutput = outputText;
+        document.getElementById("output").innerText = outputText;
 
-        // ================= CHART =================
-
-        try {
-            drawChart(data.prediction);
-        } catch (chartError) {
-            console.warn("Chart render failed", chartError);
+        // ✅ Save clean history (NO undefined)
+        if (prediction.length > 0) {
+            saveHistory(prediction, accuracy);
+            drawChart(prediction);
+            drawMap(prediction, dataRows);
         }
-
-        // ================= MAP =================
-
-        try {
-            loadMap(data.prediction);
-        } catch (mapError) {
-            console.warn("Map render failed", mapError);
-        }
-
-        // ================= HISTORY =================
-
-        loadHistory();
-
-    } catch (error) {
-
-        console.log(error);
-
+    })
+    .catch(err => {
+        console.error(err);
         document.getElementById("loader").style.display = "none";
-
-        alert("Prediction Failed");
-    }
-}
-
-
-// ================= MAP =================
-
-function loadMap(predictions) {
-
-    document.getElementById("map").innerHTML = "";
-
-    const map = L.map("map", { scrollWheelZoom: false }).setView([12.97, 77.59], 6);
-
-    map.keyboard.disable();
-
-    L.tileLayer(
-        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-        {
-            attribution: "© OpenStreetMap"
-        }
-    ).addTo(map);
-
-    predictions.forEach(item => {
-
-        let color = item.prediction === 1 ? "red" : "green";
-
-        L.circleMarker([item.lat, item.lon], {
-
-            radius: 8,
-            color: color
-
-        })
-        .addTo(map)
-        .bindPopup(`
-            Prediction: ${item.prediction}<br>
-            Latitude: ${item.lat}<br>
-            Longitude: ${item.lon}
-        `);
+        document.getElementById("output").innerText = "Server error!";
     });
-
-    setTimeout(() => {
-        map.invalidateSize();
-    }, 50);
 }
 
-function renderPredictionOutput(predictions, accuracy) {
-    const normalCount = predictions.filter(item => item.prediction === 0).length;
-    const alertCount = predictions.filter(item => item.prediction === 1).length;
-
-    const rows = predictions.map((item, index) => {
-        const label = item.prediction === 1 ? "Alert" : "Normal";
-        const className = item.prediction === 1 ? "status alert" : "status ok";
-
-        return `
-            <tr>
-                <td>${index + 1}</td>
-                <td>${item.lat}</td>
-                <td>${item.lon}</td>
-                <td><span class="${className}">${label}</span></td>
-            </tr>
-        `;
-    }).join("");
-
-    return `
-        <div class="prediction-summary">
-            <span><strong>Total points:</strong> ${predictions.length}</span>
-            <span><strong>Normal:</strong> ${normalCount}</span>
-            <span><strong>Alert:</strong> ${alertCount}</span>
-            <span><strong>Accuracy:</strong> ${accuracy ?? "N/A"}</span>
-        </div>
-        <div class="prediction-table-wrapper">
-            <table class="prediction-table">
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>Latitude</th>
-                        <th>Longitude</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${rows}
-                </tbody>
-            </table>
-        </div>
-    `;
-}
-
-
-// ================= CHART =================
-
-let chartInstance = null;
-
+// ===== CHART =====
 function drawChart(predictions) {
+    let canvas = document.getElementById("chart");
 
-    const canvas = document.getElementById("chart");
-    const ctx = canvas.getContext("2d");
+    // 🔥 FIX: ensure canvas visible
+    canvas.style.display = "block";
 
-    const normalCount = predictions.filter(item => item.prediction === 0).length;
-    const alertCount = predictions.filter(item => item.prediction === 1).length;
-
-    const labels = ["Normal", "Alert"];
-    const values = [normalCount, alertCount];
-    const backgroundColors = ["rgba(75, 192, 75, 0.7)", "rgba(255, 99, 132, 0.7)"];
-    const borderColors = ["rgba(75, 192, 75, 1)", "rgba(255, 99, 132, 1)"];
-
-    if (chartInstance) {
-        chartInstance.destroy();
+    if (window.chartInstance) {
+        window.chartInstance.destroy();
     }
 
-    chartInstance = new Chart(ctx, {
+    let count1 = predictions.filter(x => x === 1).length;
+    let count0 = predictions.filter(x => x === 0).length;
 
+    window.chartInstance = new Chart(canvas, {
         type: "bar",
-
         data: {
-            labels: labels,
+            labels: ["Safe (0)", "Risk (1)"],
             datasets: [{
-                label: "Prediction count",
-                data: values,
-                backgroundColor: backgroundColors,
-                borderColor: borderColors,
-                borderWidth: 2
+                label: "Prediction Count",
+                data: [count0, count1]
             }]
         },
-
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        precision: 0,
-                        stepSize: 1
-                    },
-                    title: {
-                        display: true,
-                        text: "Count"
-                    }
-                },
-                x: {
-                    title: {
-                        display: true,
-                        text: "Prediction type"
-                    }
-                }
-            },
-            plugins: {
-                legend: {
-                    display: false
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            return `${context.label}: ${context.formattedValue}`;
-                        }
-                    }
-                }
-            }
+            responsive: true
         }
     });
 }
 
+// ===== MAP =====
+function drawMap(predictions, data) {
+    let mapDiv = document.getElementById("map");
 
-// ================= HISTORY =================
+    // 🔥 clear old map
+    mapDiv.innerHTML = "";
 
-async function loadHistory() {
+    window.map = L.map('map').setView([20.5937, 78.9629], 4);
 
-    const token = localStorage.getItem("token");
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
+    .addTo(window.map);
 
-    const response = await fetch("http://127.0.0.1:5000/history", {
+    predictions.forEach((p, i) => {
+        let lat = data[i].latitude;
+        let lon = data[i].longitude;
 
-        method: "GET",
+        let color = p === 1 ? "red" : "green";
 
-        headers: {
-            Authorization: `Bearer ${token}`
-        }
-
+        L.circleMarker([lat, lon], {
+            color: color,
+            radius: 6
+        })
+        .addTo(window.map)
+        .bindPopup("Prediction: " + p + "<br>Lat: " + lat + "<br>Lon: " + lon);
     });
 
-    if (!response.ok) {
-        const error = await response.json();
-        document.getElementById("history").innerHTML = `<p style='color:#ff9aa2;'>${error.msg || error.error || 'Unable to load history.'}</p>`;
+    // 🔥 FIX: force map render
+    setTimeout(() => {
+        window.map.invalidateSize();
+    }, 200);
+}
+
+// ===== HISTORY =====
+function loadHistory() {
+    let historyDiv = document.getElementById("history");
+
+    let history = JSON.parse(localStorage.getItem("history")) || [];
+
+    // 🔥 FIX: remove bad entries
+    history = history.filter(h => h.prediction && h.accuracy);
+
+    if (history.length === 0) {
+        historyDiv.innerHTML = "No history found";
         return;
     }
 
-    const data = await response.json();
-
-    document.getElementById("history").innerHTML = renderHistoryOutput(data, null);
+    historyDiv.innerHTML = history.map(h =>
+        `<div>Prediction: ${JSON.stringify(h.prediction)} <br> Accuracy: ${h.accuracy}</div><hr>`
+    ).join("");
 }
 
-function renderHistoryOutput(historyList, limit = 10) {
-    if (!historyList || historyList.length === 0) {
-        return "<p>No history yet...</p>";
-    }
+// ===== SAVE HISTORY =====
+function saveHistory(prediction, accuracy) {
+    let history = JSON.parse(localStorage.getItem("history")) || [];
 
-    const total = historyList.length;
-    const sortedHistory = [...historyList].reverse();
-    const showList = limit && total > limit ? sortedHistory.slice(0, limit) : sortedHistory;
-    const showingText = limit && total > limit ? `Showing latest ${limit} of ${total} sessions` : `Showing ${total} session${total !== 1 ? "s" : ""}`;
+    // 🔥 avoid saving undefined
+    if (!prediction || !accuracy) return;
 
-    const historyItems = showList.map((entry, idx) => {
-        const records = entry.results ?? entry.predictions ?? [];
-        const count = Array.isArray(records) ? records.length : 0;
-        const timestamp = entry.timestamp ? new Date(entry.timestamp).toLocaleString() : "Unknown time";
-        const details = Array.isArray(records) ? records.slice(0, 5).map(record => {
-            if (record && record.lat !== undefined && record.lon !== undefined) {
-                return `<li>${record.prediction} @ ${record.lat}, ${record.lon}</li>`;
-            }
-            return `<li>${JSON.stringify(record)}</li>`;
-        }).join("") : "";
+    history.push({ prediction, accuracy });
 
-        return `
-            <div class="history-item">
-                <div class="history-meta">
-                    <strong>Session ${total - idx}</strong>
-                    <span>${timestamp}</span>
-                </div>
-                <p>Predictions: ${count} point${count !== 1 ? "s" : ""}</p>
-                ${details ? `<ul>${details}</ul>` : ""}
-            </div>
-        `;
-    }).join("");
-
-    const moreNote = limit && total > limit ? `<div class="history-note">Click the History button to view full history.</div>` : "";
-
-    return `
-        <div class="history-summary">${showingText}</div>
-        ${moreNote}
-        <div class="history-list">
-            ${historyItems}
-        </div>
-    `;
+    localStorage.setItem("history", JSON.stringify(history));
 }
 
-
-// ================= ADMIN =================
-
-async function goAdmin() {
-
-    const token = localStorage.getItem("token");
-
-    const response = await fetch("http://127.0.0.1:5000/admin", {
-
-        method: "GET",
-
-        headers: {
-            Authorization: `Bearer ${token}`
-        }
-
-    });
-
-    const data = await response.json();
-
-    alert(JSON.stringify(data, null, 2));
+// ===== ADMIN =====
+function goAdmin() {
+    window.location.href = "admin.html";
 }
 
-
-// ================= LOGOUT =================
-
+// ===== LOGOUT =====
 function logout() {
-
     localStorage.removeItem("token");
-    localStorage.removeItem("lastPrediction");
-
-    alert("Logged out");
-
     window.location.href = "login.html";
 }
+
+// ===== ON LOAD =====
+window.onload = function() {
+    let lastOutput = localStorage.getItem("lastOutput");
+    if (lastOutput) {
+        document.getElementById("output").innerText = lastOutput;
+    }
+
+    let lastPred = localStorage.getItem("lastPredictions");
+    let lastData = localStorage.getItem("lastData");
+    if (lastPred && lastData) {
+        let pred = JSON.parse(lastPred);
+        let data = JSON.parse(lastData);
+        drawChart(pred);
+        drawMap(pred, data);
+    }
+};

@@ -76,8 +76,10 @@ a {
 </div>
 
 <script>
+const API_URL = "https://geo-ai-project-backend1.onrender.com";
+
 function register() {
-    fetch("http://127.0.0.1:5000/register", {
+    fetch(`${API_URL}/register`, {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({
