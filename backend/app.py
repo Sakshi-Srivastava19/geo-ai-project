@@ -1,140 +1,247 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_jwt_extended import (
-    JWTManager, create_access_token,
-    jwt_required, get_jwt_identity
+    JWTManager,
+    create_access_token,
+    jwt_required,
+    get_jwt_identity
 )
-import json, os
+
 import pandas as pd
 import joblib
+import json
+import os
+
 from preprocess import preprocess
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
+# ================= APP =================
 app = Flask(__name__)
-@app.route("/")
-def home():
-    return "Backend is running 🚀"
-app.config["JWT_SECRET_KEY"] = "this_is_a_super_secure_secret_key_1234567890_abcdef"
+
+CORS(app, resources={r"/*": {"origins": "*"}})
+
+app.config["JWT_SECRET_KEY"] = "geo_ai_dashboard_super_secure_secret_key_for_project_2026"
 
 jwt = JWTManager(app)
-CORS(app)
 
-model = joblib.load(os.path.join(BASE_DIR, "geo_model.pkl"))
+# ================= LOAD MODEL =================
+model = joblib.load("geo_model.pkl")
 
-# ---------- USERS ----------
+# ================= HOME =================
+@app.route("/")
+def home():
+    return "Geo-AI Backend Running Successfully 🚀"
+
+# ================= USERS =================
 def load_users():
-    users_path = os.path.join(BASE_DIR, "users.json")
-    if not os.path.exists(users_path):
+
+    if not os.path.exists("users.json"):
         return {}
-    with open(users_path, "r") as f:
+
+    with open("users.json", "r") as f:
         return json.load(f)
 
 def save_users(users):
-    users_path = os.path.join(BASE_DIR, "users.json")
-    with open(users_path, "w") as f:
+
+    with open("users.json", "w") as f:
         json.dump(users, f)
 
-# ---------- HISTORY ----------
+# ================= HISTORY =================
 def load_history():
-    history_path = os.path.join(BASE_DIR, "history.json")
-    if not os.path.exists(history_path):
+
+    if not os.path.exists("history.json"):
         return []
-    with open(history_path, "r") as f:
+
+    with open("history.json", "r") as f:
         return json.load(f)
 
-def save_history(data):
-    history_path = os.path.join(BASE_DIR, "history.json")
-    with open(history_path, "w") as f:
-        json.dump(data, f)
+def save_history(history):
 
-# ---------- REGISTER ----------
+    with open("history.json", "w") as f:
+        json.dump(history, f)
+
+# ================= REGISTER =================
 @app.route("/register", methods=["POST"])
 def register():
+
     data = request.json
+
     users = load_users()
 
-    if data["username"] in users:
-        return jsonify({"msg": "User exists"}), 400
+    username = data.get("username")
+    password = data.get("password")
 
-    users[data["username"]] = data["password"]
+    if username in users:
+        return jsonify({"msg": "User already exists"}), 400
+
+    users[username] = password
+
     save_users(users)
 
-    return jsonify({"msg": "Registered successfully"})
+    return jsonify({
+        "msg": "Registration successful"
+    })
 
-# ---------- LOGIN ----------
+# ================= LOGIN =================
 @app.route("/login", methods=["POST"])
 def login():
+
     data = request.json
+
     users = load_users()
 
-    if data["username"] in users and users[data["username"]] == data["password"]:
-        token = create_access_token(identity=data["username"])
-        return jsonify({"token": token})
+    username = data.get("username")
+    password = data.get("password")
 
-    return jsonify({"msg": "Invalid credentials"}), 401
+    if username not in users:
+        return jsonify({
+            "msg": "User not found"
+        }), 401
 
-# ---------- PREDICT ----------
+    if users[username] != password:
+        return jsonify({
+            "msg": "Invalid password"
+        }), 401
+
+    token = create_access_token(identity=username)
+
+    return jsonify({
+        "token": token
+    })
+
+# ================= PREDICT =================
 @app.route("/predict", methods=["POST"])
 @jwt_required()
 def predict():
+
     print("Prediction API HIT")
 
-    user = get_jwt_identity()
+    try:
 
-    if 'file' not in request.files:
-        return jsonify({"error": "No file uploaded"}), 400
+        if "file" not in request.files:
+            return jsonify({
+                "error": "No file uploaded"
+            }), 400
 
-    file = request.files['file']
+        file = request.files["file"]
 
-    if file.filename == '':
-        return jsonify({"error": "Empty file"}), 400
+        if file.filename == "":
+            return jsonify({
+                "error": "Empty file"
+            }), 400
 
-    df = pd.read_csv(file)
+        # ===== READ CSV =====
+        df = pd.read_csv(file)
 
-    processed = preprocess(df)
-    predictions = model.predict(processed)
+        # ===== CLEAN COLUMN NAMES =====
+        df.columns = df.columns.str.strip().str.lower()
 
-    history = load_history()
-    history.append({
-        "user": user,
-        "predictions": predictions.tolist()
-    })
-    save_history(history)
+        print(df.columns)
 
-    return jsonify({
-        "prediction": predictions.tolist(),
-        "data": df.to_dict('records'),
-        "accuracy": 0.85
-    })
+        # ===== PREPROCESS =====
+        processed = preprocess(df)
 
-# ---------- HISTORY ----------
+        # ===== PREDICTION =====
+        predictions = model.predict(processed)
+
+        results = []
+
+        for i in range(len(predictions)):
+
+            results.append({
+
+                "lat": float(df.iloc[i]["latitude"]),
+                "lon": float(df.iloc[i]["longitude"]),
+                "prediction": int(predictions[i])
+
+            })
+
+        # ===== ACCURACY =====
+        accuracy = None
+
+        if "label" in df.columns:
+
+            accuracy = round(
+                float(model.score(processed, df["label"])),
+                2
+            )
+
+        # ===== SAVE HISTORY =====
+        history = load_history()
+
+        history.append({
+
+            "user": get_jwt_identity(),
+
+            "results": results,
+
+            "timestamp": pd.Timestamp.now().isoformat()
+
+        })
+
+        save_history(history)
+
+        return jsonify({
+
+            "prediction": results,
+
+            "accuracy": accuracy
+
+        })
+
+    except Exception as e:
+
+        print(str(e))
+
+        return jsonify({
+            "error": str(e)
+        }), 500
+
+# ================= HISTORY =================
 @app.route("/history", methods=["GET"])
 @jwt_required()
-def get_history():
-    user = get_jwt_identity()
-    history = load_history()
+def history():
 
-    user_history = [h for h in history if h["user"] == user]
+    user = get_jwt_identity()
+
+    history_data = load_history()
+
+    user_history = []
+
+    for item in history_data:
+
+        if item["user"] == user:
+            user_history.append(item)
+
     return jsonify(user_history)
 
-# ---------- ADMIN ----------
+# ================= ADMIN =================
 @app.route("/admin", methods=["GET"])
 @jwt_required()
 def admin():
+
     user = get_jwt_identity()
 
     if user != "admin":
-        return jsonify({"msg": "Access denied"}), 403
+
+        return jsonify({
+            "msg": "Access denied"
+        }), 403
 
     users = load_users()
+
     history = load_history()
 
     return jsonify({
+
         "total_users": len(users),
+
         "total_predictions": len(history),
+
         "users": list(users.keys())
+
     })
 
+# ================= MAIN =================
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
+
+    app.run(debug=True)
