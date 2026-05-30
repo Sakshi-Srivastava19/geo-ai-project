@@ -1,7 +1,9 @@
 // ===== DEBUG =====
 console.log("JS Loaded");
 const API_URL = "https://geo-ai-project-backend1.onrender.com";
-// ===== SEND DATA =====
+if (!localStorage.getItem("token")) {
+    window.location.href = "login.html";
+}// ===== SEND DATA =====
 function sendData(event) {
     if (event) event.preventDefault(); // 🔥 prevent refresh
 
